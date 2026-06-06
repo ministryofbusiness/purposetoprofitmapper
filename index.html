@@ -858,11 +858,33 @@ Respond ONLY with this exact JSON — no markdown, no backticks, nothing else:
         })
         .then(r => r.json())
         .then(apiData => {
-          console.log('Raw API data for', offerType.type, ':', JSON.stringify(apiData).substring(0, 200));
+          console.log('Full API response:', JSON.stringify(apiData).substring(0, 500));
           if (apiData.error) throw new Error(apiData.error.message);
-          const raw = apiData.content.map(i => i.text || '').join('').replace(/```json|```/g, '').trim();
-          console.log('Raw text:', raw.substring(0, 100));
+          
+          // Extract text from response
+          let raw = '';
+          if (apiData.content && Array.isArray(apiData.content)) {
+            raw = apiData.content.map(i => i.text || '').join('');
+          }
+          console.log('Raw text length:', raw.length, 'Preview:', raw.substring(0, 200));
+          
+          // Clean the response - remove ALL possible wrapper formats
+          raw = raw.trim();
+          raw = raw.replace(/^```json\s*/i, '');
+          raw = raw.replace(/^```\s*/i, '');
+          raw = raw.replace(/\s*```$/i, '');
+          raw = raw.trim();
+          
+          // Find JSON object in the text
+          const jsonStart = raw.indexOf('{');
+          const jsonEnd = raw.lastIndexOf('}');
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            raw = raw.substring(jsonStart, jsonEnd + 1);
+          }
+          
+          console.log('Cleaned JSON:', raw.substring(0, 200));
           const parsed = JSON.parse(raw);
+          console.log('Successfully parsed offer:', parsed.title);
           return { ...parsed, type: offerType.type, price: offerType.price, badge: offerType.badge };
         })
         .catch(err => {
