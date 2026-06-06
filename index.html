@@ -847,18 +847,51 @@ Respond ONLY with valid JSON. No markdown. No backticks. No preamble. Exactly th
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 2500,
+          max_tokens: 4000,
           messages: [{ role: 'user', content: prompt }]
         })
       });
 
       const apiData = await response.json();
+      console.log('API RESPONSE:', JSON.stringify(apiData).substring(0, 500));
       const raw = apiData.content.map(i => i.text || '').join('');
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
+      console.log('RAW LENGTH:', raw.length);
+
+      let clean = raw.replace(/```json|```/g, '').trim();
+      let parsed;
+
+      try {
+        parsed = JSON.parse(clean);
+      } catch(e) {
+        // JSON may be truncated - try to extract offers array directly
+        const greetingMatch = clean.match(/"greeting"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        const closingMatch  = clean.match(/"closing"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+
+        // Extract individual offer objects
+        const offerMatches = [...clean.matchAll(/\{[^{}]*"type"[^{}]*"title"[^{}]*"description"[^{}]*"firstStep"[^{}]*"price"[^{}]*"encouragement"[^{}]*\}/g)];
+        console.log('Offer matches found:', offerMatches.length);
+
+        if (offerMatches.length > 0) {
+          const offers = offerMatches.map(m => {
+            try { return JSON.parse(m[0]); } catch(e) { return null; }
+          }).filter(Boolean);
+
+          parsed = {
+            greeting: greetingMatch ? greetingMatch[1] : data.name + ', God placed something powerful in you.',
+            offers: offers,
+            closing: closingMatch ? closingMatch[1] : 'You were made for this. Now go build it.'
+          };
+        } else {
+          console.error('Could not extract offers:', e);
+          renderFallback();
+          return;
+        }
+      }
+
+      console.log('OFFERS COUNT:', parsed.offers ? parsed.offers.length : 0);
       renderResults(parsed);
     } catch (err) {
-      console.error(err);
+      console.error('Outer error:', err);
       renderFallback();
     }
   }
