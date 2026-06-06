@@ -803,50 +803,70 @@
       { type: "SIGNATURE PREMIUM OFFER", price: "$997 and up", badge: "badge-yellow" }
     ];
 
-    const basePrompt = `You are Joy, founder of The Ministry of Business. Respond ONLY with a JSON object, no markdown, no backticks.
-
-Person details:
-Name: ${data.name}
-Gift: ${data.gift}
-People ask them for: ${data.asked}
-Passion: ${data.passion}
-Testimony: ${data.testimony}
-Goal: ${data.goal}
-Serves: ${data.audience}
-Stage: ${data.stage}`;
-
     try {
-      // Show loading
       const container = document.getElementById('offers-container');
       container.innerHTML = '';
       document.getElementById('results-intro').textContent = `${data.name}, God placed something powerful in you. Here are your 5 personalized paths to profit.`;
 
-      // Generate all 5 offers
-      const offerPromises = offerTypes.map((offerType, i) => {
-        const prompt = basePrompt + `
+      // Generate all 5 offers with sequential calls to avoid rate limits
+      const offerConfigs = [
+        { type: "LOW TICKET DIGITAL PRODUCT", price: "$17 to $47", badge: "badge-green",
+          instruction: "Create a low ticket digital product ($17-$47) like a workbook, mini guide, calculator, or template. Give it a creative compelling name. Make it specific to their gift and audience. It should deliver ONE clear quick win result." },
+        { type: "MID-SIZE OFFER", price: "$97 to $297", badge: "badge-yellow",
+          instruction: "Create a mid-size offer ($97-$297) like a mini course, workshop, or intensive. Give it a creative compelling name. It should take their audience from a specific problem to a specific result using this person's gift." },
+        { type: "SERVICE OR COACHING", price: "$297 to $997", badge: "badge-pink",
+          instruction: "Create a 1-on-1 coaching or done-for-you service offer ($297-$997). Give it a creative compelling name. Make it specific to their gift. Include what the client gets and the transformation they receive." },
+        { type: "MINISTRY AND COMMUNITY OFFER", price: "$27 to $97/month", badge: "badge-green",
+          instruction: "Create a faith-based membership, community, or group program ($27-$97/month). Give it a creative compelling name. It should bring people together around their specific calling and create ongoing transformation and accountability." },
+        { type: "SIGNATURE PREMIUM OFFER", price: "$997 and up", badge: "badge-yellow",
+          instruction: "Create a high-ticket signature program or VIP experience ($997+). Give it a powerful premium name. This is their flagship transformation offer — make it bold, specific, and worthy of the price tag." }
+      ];
 
-Create ONE ${offerType.type} offer (suggested price: ${offerType.price}) for this person.
-Respond ONLY with this exact JSON structure, nothing else:
-{"title":"offer name here","description":"1-2 sentences about what it is","firstStep":"one action this week","encouragement":"one short faith line"}`;
+      const offerPromises = offerConfigs.map((offerType) => {
+        const prompt = `You are Joy, founder of The Ministry of Business — a faith-driven business coach. You speak with warmth, directness, and spiritual authority.
+
+Here is the person you are creating an offer for:
+Name: ${data.name}
+God-given gift: ${data.gift}
+What people always ask them for help with: ${data.asked}
+Their passion: ${data.passion}
+Their testimony and story: ${data.testimony}
+Their income and freedom goal: ${data.goal}
+Who they are called to serve: ${data.audience}
+Business stage: ${data.stage}
+
+TASK: ${offerType.instruction}
+
+Use their SPECIFIC gift, story, and audience — not generic language. Make the offer name creative and marketable. The description should make them feel like you read their soul. The first step should be something they can genuinely do THIS week to start.
+
+Respond ONLY with this exact JSON — no markdown, no backticks, nothing else:
+{"title":"Creative Offer Name Here","description":"2-3 sentences describing exactly what this offer is, who it is for, and what result they get","firstStep":"One very specific action they can take THIS week to start building this offer","encouragement":"One powerful faith-filled sentence speaking directly to their calling"}`;
 
         return fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'claude-sonnet-4-20250514',
-            max_tokens: 300,
+            max_tokens: 400,
             messages: [{ role: 'user', content: prompt }]
           })
         })
         .then(r => r.json())
         .then(apiData => {
+          console.log('Raw API data for', offerType.type, ':', JSON.stringify(apiData).substring(0, 200));
+          if (apiData.error) throw new Error(apiData.error.message);
           const raw = apiData.content.map(i => i.text || '').join('').replace(/```json|```/g, '').trim();
+          console.log('Raw text:', raw.substring(0, 100));
           const parsed = JSON.parse(raw);
           return { ...parsed, type: offerType.type, price: offerType.price, badge: offerType.badge };
         })
         .catch(err => {
-          console.error('Offer error:', err);
-          return { type: offerType.type, price: offerType.price, badge: offerType.badge, title: offerType.type, description: 'Your God-given gift has real market value.', firstStep: 'Write down 3 ways you already help people for free.', encouragement: 'What God placed in you is someone else\'s breakthrough.' };
+          console.error('Offer error for', offerType.type, ':', err);
+          return { type: offerType.type, price: offerType.price, badge: offerType.badge,
+            title: `The ${data.gift.split(' ').slice(0,3).join(' ')} ${offerType.type.split(' ')[0]} Offer`,
+            description: `A personalized ${offerType.type.toLowerCase()} built around your gift of ${data.gift}. Designed specifically for ${data.audience}.`,
+            firstStep: `Write out exactly what you would teach someone about ${data.passion} in 30 minutes. That is your outline.`,
+            encouragement: `God did not give you this gift to keep it hidden — it is time to build.` };
         });
       });
 
