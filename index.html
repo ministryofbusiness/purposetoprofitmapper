@@ -809,8 +809,7 @@
       document.getElementById('results-intro').textContent = `${data.name}, God placed something powerful in you. Here are your 5 personalized paths to profit.`;
 
       // Generate all 5 offers with sequential calls to avoid rate limits
-      const ANTHROPIC_KEY = 'PASTE_YOUR_KEY_HERE';
-    const offerConfigs = [
+      const offerConfigs = [
         { type: "LOW TICKET DIGITAL PRODUCT", price: "$17 to $47", badge: "badge-green",
           instruction: "Create a low ticket digital product ($17-$47) like a workbook, mini guide, calculator, or template. Give it a creative compelling name. Make it specific to their gift and audience. It should deliver ONE clear quick win result." },
         { type: "MID-SIZE OFFER", price: "$97 to $297", badge: "badge-yellow",
@@ -843,12 +842,10 @@ Use their SPECIFIC gift, story, and audience — not generic language. Make the 
 Respond ONLY with this exact JSON — no markdown, no backticks, nothing else:
 {"title":"Creative Offer Name Here","description":"2-3 sentences describing exactly what this offer is, who it is for, and what result they get","firstStep":"One very specific action they can take THIS week to start building this offer","encouragement":"One powerful faith-filled sentence speaking directly to their calling"}`;
 
-        return fetch('https://api.anthropic.com/v1/messages', {
+        return fetch('/api/generate', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_KEY,
-            'anthropic-version': '2023-06-01'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-5',
