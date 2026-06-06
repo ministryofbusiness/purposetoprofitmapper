@@ -795,101 +795,88 @@
     document.getElementById('step-loading').classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    const prompt = `You are Joy, founder of The Ministry of Business — a faith-driven business strategist helping Christians turn their God-given gifts into profitable businesses. Your voice is warm, direct, encouraging, and Spirit-led. You speak like a trusted coach and friend.
+    const offerTypes = [
+      { type: "LOW TICKET DIGITAL PRODUCT", price: "$17 to $47", badge: "badge-green" },
+      { type: "MID-SIZE OFFER", price: "$97 to $297", badge: "badge-yellow" },
+      { type: "SERVICE OR COACHING", price: "$297 to $997", badge: "badge-pink" },
+      { type: "MINISTRY AND COMMUNITY OFFER", price: "$97 to $197", badge: "badge-green" },
+      { type: "SIGNATURE PREMIUM OFFER", price: "$997 and up", badge: "badge-yellow" }
+    ];
 
-A user just completed the Purpose-To-Profit Mapper. Here is everything they shared:
+    const basePrompt = `You are Joy, founder of The Ministry of Business. Respond ONLY with a JSON object, no markdown, no backticks.
 
-NAME: ${data.name}
-GOD-GIVEN GIFT/SKILL: ${data.gift}
-WHAT PEOPLE ALWAYS ASK THEM FOR: ${data.asked}
-THEIR PASSION TOPIC: ${data.passion}
-THEIR TESTIMONY/STORY: ${data.testimony}
-THEIR INCOME/FREEDOM GOAL: ${data.goal}
-WHO THEY FEEL CALLED TO SERVE: ${data.audience}
-BUSINESS STAGE: ${data.stage}
-
-Create their personalized Purpose-To-Profit Map with EXACTLY 5 monetization paths. You MUST return all 5. The offers must be:
-1. A LOW TICKET digital product ($17 to $47)
-2. A MID-SIZE offer ($97 to $297)
-3. A SERVICE or COACHING offer ($297 to $997)
-4. A MINISTRY-BASED or community offer
-5. A SIGNATURE or premium offer ($997 and up)
-
-For EACH of the 5 offers provide:
-- type: the offer type label
-- title: a specific offer name tailored to their gift and audience
-- description: 1 sentence only
-- firstStep: 1 sentence action only
-- price: suggested price range
-- encouragement: 1 short sentence
-
-Use their name and gift. Be concise. Warm and faith-driven tone. All 5 offers are required — do not stop early.
-
-Respond ONLY with valid JSON. No markdown. No backticks. No preamble. Exactly this structure:
-{
-  "greeting": "2 warm sentences calling them by name and affirming what God has placed in them",
-  "offers": [
-    {
-      "type": "OFFER TYPE",
-      "title": "Offer Title",
-      "description": "Description here",
-      "firstStep": "First step this week",
-      "price": "$XX to $XX",
-      "encouragement": "Faith encouragement line"
-    }
-  ],
-  "closing": "2 powerful sentences sending them off with confidence and faith"
-}`;
+Person details:
+Name: ${data.name}
+Gift: ${data.gift}
+People ask them for: ${data.asked}
+Passion: ${data.passion}
+Testimony: ${data.testimony}
+Goal: ${data.goal}
+Serves: ${data.audience}
+Stage: ${data.stage}`;
 
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages: [{ role: 'user', content: prompt }]
+      // Show loading
+      const container = document.getElementById('offers-container');
+      container.innerHTML = '';
+      document.getElementById('results-intro').textContent = `${data.name}, God placed something powerful in you. Here are your 5 personalized paths to profit.`;
+
+      // Generate all 5 offers
+      const offerPromises = offerTypes.map((offerType, i) => {
+        const prompt = basePrompt + `
+
+Create ONE ${offerType.type} offer (suggested price: ${offerType.price}) for this person.
+Respond ONLY with this exact JSON structure, nothing else:
+{"title":"offer name here","description":"1-2 sentences about what it is","firstStep":"one action this week","encouragement":"one short faith line"}`;
+
+        return fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: prompt }]
+          })
         })
+        .then(r => r.json())
+        .then(apiData => {
+          const raw = apiData.content.map(i => i.text || '').join('').replace(/```json|```/g, '').trim();
+          const parsed = JSON.parse(raw);
+          return { ...parsed, type: offerType.type, price: offerType.price, badge: offerType.badge };
+        })
+        .catch(err => {
+          console.error('Offer error:', err);
+          return { type: offerType.type, price: offerType.price, badge: offerType.badge, title: offerType.type, description: 'Your God-given gift has real market value.', firstStep: 'Write down 3 ways you already help people for free.', encouragement: 'What God placed in you is someone else\'s breakthrough.' };
+        });
       });
 
-      const apiData = await response.json();
-      console.log('API RESPONSE:', JSON.stringify(apiData).substring(0, 500));
-      const raw = apiData.content.map(i => i.text || '').join('');
-      console.log('RAW LENGTH:', raw.length);
+      const offers = await Promise.all(offerPromises);
+      console.log('All offers received:', offers.length);
 
-      let clean = raw.replace(/```json|```/g, '').trim();
-      let parsed;
+      offers.forEach((offer, i) => {
+        const card = document.createElement('div');
+        card.className = 'offer-card';
+        card.innerHTML = `
+          <span class="offer-type-badge ${offer.badge}">Path ${i+1} — ${offer.type}</span>
+          <div class="offer-title">${offer.title}</div>
+          <div class="offer-description">${offer.description}</div>
+          <div class="offer-step">
+            <div class="offer-step-label">Your First Step This Week</div>
+            <div class="offer-step-text">${offer.firstStep}</div>
+          </div>
+          <div class="offer-encouragement">${offer.encouragement}</div>
+          <div class="offer-price">${offer.price}</div>
+        `;
+        container.appendChild(card);
+      });
 
-      try {
-        parsed = JSON.parse(clean);
-      } catch(e) {
-        // JSON may be truncated - try to extract offers array directly
-        const greetingMatch = clean.match(/"greeting"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-        const closingMatch  = clean.match(/"closing"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const closing = document.createElement('div');
+      closing.className = 'closing-card';
+      closing.innerHTML = `<p>${data.name}, you were made for this. Every gift God placed in you has a purpose and a profit attached to it. Now go build it.</p>`;
+      container.appendChild(closing);
 
-        // Extract individual offer objects
-        const offerMatches = [...clean.matchAll(/\{[^{}]*"type"[^{}]*"title"[^{}]*"description"[^{}]*"firstStep"[^{}]*"price"[^{}]*"encouragement"[^{}]*\}/g)];
-        console.log('Offer matches found:', offerMatches.length);
+      goToStep('results');
 
-        if (offerMatches.length > 0) {
-          const offers = offerMatches.map(m => {
-            try { return JSON.parse(m[0]); } catch(e) { return null; }
-          }).filter(Boolean);
-
-          parsed = {
-            greeting: greetingMatch ? greetingMatch[1] : data.name + ', God placed something powerful in you.',
-            offers: offers,
-            closing: closingMatch ? closingMatch[1] : 'You were made for this. Now go build it.'
-          };
-        } else {
-          console.error('Could not extract offers:', e);
-          renderFallback();
-          return;
-        }
-      }
-
-      console.log('OFFERS COUNT:', parsed.offers ? parsed.offers.length : 0);
-      renderResults(parsed);
     } catch (err) {
       console.error('Outer error:', err);
       renderFallback();
