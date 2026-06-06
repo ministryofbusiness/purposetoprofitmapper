@@ -818,12 +818,12 @@ Create their personalized Purpose-To-Profit Map with EXACTLY 5 monetization path
 For EACH of the 5 offers provide:
 - type: the offer type label
 - title: a specific offer name tailored to their gift and audience
-- description: 2 to 3 sentences describing what it is and who it is for
-- firstStep: one specific action they can take this week to start building it
+- description: 1 sentence only
+- firstStep: 1 sentence action only
 - price: suggested price range
-- encouragement: one short faith-filled line (not a quote, just a direct statement)
+- encouragement: 1 short sentence
 
-Use their name. Reference their specific gift, story, and audience. Make them feel seen and divinely confirmed. Do not use exclamation marks excessively. Keep the tone warm and grounded.
+Use their name and gift. Be concise. Warm and faith-driven tone. All 5 offers are required — do not stop early.
 
 Respond ONLY with valid JSON. No markdown. No backticks. No preamble. Exactly this structure:
 {
@@ -847,7 +847,7 @@ Respond ONLY with valid JSON. No markdown. No backticks. No preamble. Exactly th
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
+          max_tokens: 2500,
           messages: [{ role: 'user', content: prompt }]
         })
       });
